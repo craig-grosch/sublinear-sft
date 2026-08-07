@@ -1,0 +1,17 @@
+[project]
+name = "sublinear-sft"
+version = "0.0.1"
+description = "Python implementation of Sublinear Sparse Fourier Transform algorithm"
+readme = "README.md"
+authors = [
+    { name = "Craig Grosch", email = "grosscra@msu.edu" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+sublinear-sft = "sublinear_sft:main"
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
