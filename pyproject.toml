@@ -7,7 +7,10 @@ authors = [
     { name = "Craig Grosch", email = "grosscra@msu.edu" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "numpy>=2.5.3",
+    "sympy>=1.14.0",
+]
 
 [project.scripts]
 sublinear-sft = "sublinear_sft:main"
@@ -23,6 +26,9 @@ testpaths = [
 
 [dependency-groups]
 dev = [
+    "mkdocstrings[python]>=1.0.6",
     "pytest>=9.1.1",
     "ruff>=0.16.2",
+    "ty>=0.0.83",
+    "zensical>=0.0.53",
 ]
