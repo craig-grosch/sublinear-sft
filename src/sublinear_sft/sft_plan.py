@@ -41,7 +41,8 @@ class SFTPlan:
             self.C = 14  # TODO: change for deterministic vs random
         self._prime_list = sympy.ntheory.generate.Sieve()
 
-    def _major_primes(self) -> np.ndarray:
+    @property
+    def major_primes(self) -> np.ndarray:
         """Constructs major primes for measurement matrix.
 
         The major primes are calulated so that the first major prime s[0] has a
@@ -83,3 +84,68 @@ class SFTPlan:
             self._prime_list[(num_minor_primes + 1):(num_minor_primes +
                                                      num_major_primes + 1)]
         )
+
+    @property
+    def minor_primes(self) -> dict:
+        """Constructs minor "primes" for the given major prime.
+        The minor primes are actually powers of primes of the form
+        t(i) = tBase(i) ^ alpha(i), which satisfy prod(t) >= N / majorPrime and
+        are relatively prime to majorPrime. The minor primes are chosen
+        heuristically so that the the minor primes stay close to each other, do
+        not grow much larger than the associated majorPrime, and have a small
+        sum. The specific rule initially appeared in the implementation of
+        DMSFT by Ruochuan Zhang, see
+        https://sourceforge.net/projects/aafftannarborfa/.
+
+        If majorPrime is a vector, t will be a cell array of vectors of minor
+        primes, one which satisfies the above conditions for each element of
+        majorPrime. For consistency, if majorPrime has only one element, t will
+        still be a cell array containing a vector of minor primes.
+
+        The following example suggests the usage of powers of primes for minor
+        primes: Suppose that 300 = N / s for some major prime s. If we use
+        successive primes for the minor primes, we would obtain
+        2 * 3 * 5 * 7 * 11 > 300,
+        meaning the minor primes sum to 28.
+        However, if we use powers of primes,
+        we can have 3^2 * 5 * 7 > 300,
+        meaning the minor primes sum to only 21 and we only have three of them.
+        This reduces the number of rows in the measurement matrix as well as
+        the sizes of the FFTs used to generate it.
+
+        Returns:
+            dict of np.ndarray of minor primes with keys being major primes
+        """
+
+        result = dict()
+        for i in range(len(self.major_primes)):
+            t_base = np.array([self._prime_list[1]])
+            alpha = np.array([1])
+            minor_prime_product = np.prod(t_base ** alpha)
+            # Keep track of the next prime to use as minor prime.
+            next_prime = self._prime_list[2]
+            while minor_prime_product < self.N / self.major_primes[i]:
+                # To keep the minor primes close, we will only add a new prime
+                # for a base if it is smaller than (t_base .^ alpha) .* (t_base
+                # - 1).  Otherwise, we will bump up the exponent corresponding
+                # to the smallest of these values. This ensures that as the
+                # loop progresses, the minorPrimeProduct grows slowly towards N
+                # / majorPrime[i].
+                test_array = t_base ** alpha * (t_base - 1)
+                idx = test_array.argmin()
+                minimal_test_value = test_array[idx]
+                if next_prime < minimal_test_value:
+                    t_base = np.append(t_base, [next_prime])
+                    alpha = np.append(alpha, [1])
+                    if (self._prime_list[len(t_base) + 1]
+                            >= self.major_primes[i]):
+                        next_prime = self._prime_list[len(t_base) + 2]
+                    else:
+                        next_prime = self._prime_list[len(t_base) + 2]
+                else:
+                    # Increase exponent
+                    alpha[idx] = alpha[idx] + 1
+                minor_prime_product = np.prod(t_base ** alpha)
+            result[self.major_primes[i]] = t_base ** alpha
+
+        return result
