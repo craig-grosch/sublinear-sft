@@ -1,3 +1,5 @@
+from functools import cache
+
 import numpy as np
 import sympy
 
@@ -42,6 +44,7 @@ class SFTPlan:
         self._prime_list = sympy.ntheory.generate.Sieve()
 
     @property
+    @cache
     def major_primes(self) -> np.ndarray:
         """Constructs major primes for measurement matrix.
 
@@ -86,6 +89,7 @@ class SFTPlan:
         )
 
     @property
+    @cache
     def minor_primes(self) -> dict:
         """Constructs minor "primes" for the given major prime.
         The minor primes are actually powers of primes of the form
