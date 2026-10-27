@@ -57,3 +57,29 @@ def test_minor_primes():
     for prime in major_primes:
         assert prime in minor_primes.keys()
         assert plan.N / prime <= np.prod(minor_primes[prime])
+
+
+def test_major_minor_prime_product():
+    plan = SFTPlan(84, 2)
+    product = plan.major_minor_prime_product
+    assert product.shape == (len(plan.major_primes)
+                             + sum([len(minor_prime_list)
+                                    for minor_prime_list
+                                    in plan.minor_primes.values()]),
+                             )
+    assert np.all(product[:len(plan.major_primes)] == plan.major_primes)
+
+
+def test_major_minor_prime_product_sum():
+    plan = SFTPlan(84, 2)
+    product_sum = plan.major_minor_prime_product_sum
+    assert product_sum[0] == 0
+    assert product_sum.shape == (1 + len(plan.major_minor_prime_product),)
+    sum_val = 0
+    for idx, val in enumerate(plan.major_minor_prime_product):
+        assert product_sum[idx] == sum_val
+        sum_val += val
+
+
+def test_general_fast_multiply():
+    pass

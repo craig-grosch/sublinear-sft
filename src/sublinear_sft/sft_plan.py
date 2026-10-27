@@ -1,6 +1,7 @@
 from functools import cache
 
 import numpy as np
+import scipy as sp
 import sympy
 
 
@@ -153,3 +154,86 @@ class SFTPlan:
             result[self.major_primes[i]] = t_base ** alpha
 
         return result
+
+    @property
+    @cache
+    def major_minor_prime_product(self) -> np.ndarray:
+        return np.concatenate(
+            (
+                self.major_primes,
+                np.concatenate([
+                    major_prime * self.minor_primes[major_prime]
+                    for major_prime in self.major_primes
+                ])
+            )
+        )
+
+    @property
+    @cache
+    def major_minor_prime_product_sum(self) -> np.ndarray:
+        return np.concatenate(
+            ([0], self.major_minor_prime_product.cumsum())
+        )
+
+    def _general_fast_multiply(self, samples: np.ndarray):
+        """Product of large measurement matrix and Fourier transforms
+
+        Calculates the product (denoted in [Iwen, 2013] G_{\lambda, K} \tilde Phi A)
+        of an extended row tensor product measurement matrix for two sets of
+        relatively prime integers with the Fourier transform of a signal. The
+        computation is performed using a series of smaller FFTs of sizes
+        s(j) * t(i).
+
+         Note: On the indexing scheme for product.
+            The row tensor product measurement matrix is such that the first
+            sum(s) rows are those corresponding to the original measurement
+            matrix for only the set s. Thus, letting sSum = cumsum([0, s]), the
+            row r_{j, h} corresponding to prime s(j) and residue h (mod s(j))
+            in this original measurement matrix and therefore 'product' is
+            found at index sSum(j) + h + 1.
+
+            For the remaining rows, we use the notation \bar r_{i, j, h} to
+            refer to rows in the block of the row tensor product matrix
+            consisting of rows which are tensor products of r_{j, .} and \tilde
+            r_{i, .} where rows r are from the original measurement matrix
+            constructed using the values in s as described in the previous
+            paragraph and \tilde r are rows from the same form of matrix
+            constructed with the values in t{j}. The index h is therefore a
+            residue modulo t{j}(i) * s(j). Letting sSum = cumsum([0, s]) as
+            above, tSum{j} = cumsum([0, t{j}]), the row \bar r_{i, j, h} in
+            'product' is found at index
+                sum(s)
+                + s(1) * sum(t{1})
+                + s(2) * sum(t{2})
+                + ... +
+                s(j - 1) * sum(t{j - 1}) + s(j) * tSum{j}(i) + h + 1
+            When j > 1, the second line above can be calculated with
+                dot(s(1:j-1), cellfun(@sum, {t{1:j - 1}}))
+            and tSum can be calculated with
+                tSum = cellfun(@(x)cumsum([0, x]), t, 'UniformOutput', false).
+
+            Note also that this row corresponds to the row tensor product
+                \tilde r_{i, h mod t(i)} .* r_{j, h mod s(j)},
+            and so in
+            particular, we can index any row tensor product
+            \tilde r_{i, b} .* r_{j, k}
+            at \bar r_{i, j, h} using the above formula for
+            h = self._modular_reconstruction([b, k], [t{j}(i), s(j)]).
+        Args:
+            samples: Samples of the signal at the sampling nodes for the plan.
+
+        Returns:
+            A vector of length sum(s) * (1 + sum(t)) as specified above as the
+            extended measurement matrix applied to a large Fourier transform of
+            the signal.
+        """
+        # TODO: Rewrite docs for Python notation and test
+        product = np.zeros((sum(self.major_minor_prime_product,)))
+        for i in range(len(self.major_minor_prime_product)):
+            length = self.major_minor_prime_product[i]
+            start = self.major_minor_prime_product_sum[i]
+            window = np.arange(start, length)
+            # TODO: Check normalization coefficient for scipy's FFT
+            product[window] = (1 / length) * sp.fft.fft(samples[window])
+
+        return product
